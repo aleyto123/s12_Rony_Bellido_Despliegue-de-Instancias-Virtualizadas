@@ -1,47 +1,51 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const db = require('../models/db');
+const { pool } = require('../models/db');
 
 function generateToken(user) {
   return jwt.sign(
     { id: user.id, username: user.username, role: user.role },
-    process.env.JWT_SECRET || 'mundial-quiniela-secret-2026',
+    process.env.JWT_SECRET,
     { expiresIn: '7d' }
   );
 }
 
-function register(req, res) {
-  const { username, password } = req.body;
+async function register(req, res) {
+  const username = typeof req.body.username === 'string' ? req.body.username.trim() : '';
+  const password = typeof req.body.password === 'string' ? req.body.password : '';
 
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
+  if (!/^[a-zA-Z0-9_.-]{3,24}$/.test(username) || password.length < 8 || password.length > 128) {
+    return res.status(400).json({ error: 'Usa un usuario de 3 a 24 caracteres y una contraseña de 8 a 128 caracteres.' });
   }
 
-  const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username.trim());
-  if (existing) {
-    return res.status(409).json({ error: 'El usuario ya existe' });
+  const passwordHash = await bcrypt.hash(password, 12);
+  try {
+    const result = await pool.query(
+      'INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id, username, role',
+      [username, passwordHash]
+    );
+    const user = result.rows[0];
+    return res.status(201).json({ user, token: generateToken(user) });
+  } catch (error) {
+    if (error.code === '23505') return res.status(409).json({ error: 'El usuario ya existe' });
+    throw error;
   }
-
-  const passwordHash = bcrypt.hashSync(password, 10);
-  const result = db.prepare('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)').run(username.trim(), passwordHash, 'player');
-
-  const user = db.prepare('SELECT id, username, role FROM users WHERE id = ?').get(result.lastInsertRowid);
-  return res.status(201).json({ user, token: generateToken(user) });
 }
 
-function login(req, res) {
-  const { username, password } = req.body;
-
+async function login(req, res) {
+  const username = typeof req.body.username === 'string' ? req.body.username.trim() : '';
+  const password = typeof req.body.password === 'string' ? req.body.password : '';
   if (!username || !password) {
     return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
   }
 
-  const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username.trim());
+  const result = await pool.query('SELECT id, username, password_hash, role FROM users WHERE username = $1', [username]);
+  const user = result.rows[0];
   if (!user) {
     return res.status(401).json({ error: 'Credenciales inválidas' });
   }
 
-  const validPassword = bcrypt.compareSync(password, user.password_hash);
+  const validPassword = await bcrypt.compare(password, user.password_hash);
   if (!validPassword) {
     return res.status(401).json({ error: 'Credenciales inválidas' });
   }

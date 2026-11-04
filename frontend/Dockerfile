@@ -1,7 +1,8 @@
-FROM nginx:1.27-alpine
+FROM nginx:stable-alpine
 
-COPY public/ /usr/share/nginx/html/
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY frontend/public/ /usr/share/nginx/html/
+COPY nginx_balancer.conf /etc/nginx/conf.d/00-balancer.conf
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 

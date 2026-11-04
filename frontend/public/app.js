@@ -1,5 +1,4 @@
-const apiPort = window.location.port === '80' || !window.location.port ? ':3001' : `:${window.location.port}`;
-const API_BASE = `${window.location.protocol}//${window.location.hostname}${apiPort}/api`;
+const API_BASE = `${window.location.origin}/api`;
 const TEAM_FLAGS = {
   Argentina: '🇦🇷', 'Arabia Saudita': '🇸🇦', Brasil: '🇧🇷', Serbia: '🇷🇸', Francia: '🇫🇷', Australia: '🇦🇺',
   Alemania: '🇩🇪', Japón: '🇯🇵', España: '🇪🇸', 'Costa Rica': '🇨🇷', Inglaterra: '🏴', México: '🇲🇽',
@@ -151,6 +150,7 @@ function userPrediction(matchId) {
 
 function getMatchState(match) {
   if (match.home_score !== null && match.away_score !== null) return { label: 'Finalizado', tone: 'final', locked: true };
+  if (match.status === 'live') return { label: 'En juego · cerrado', tone: 'locked', locked: true };
   const minutes = (new Date(match.kickoff_at).getTime() - Date.now()) / 60000;
   if (minutes <= 10) return { label: minutes < 0 ? 'En juego · cerrado' : 'Cierre de pronóstico', tone: 'locked', locked: true };
   if (minutes > 1440) return { label: 'Anticipada · +1 pt', tone: 'early', locked: false };
@@ -308,9 +308,8 @@ function renderLeaderboard() {
   const filtered = sorted.filter((entry) => entry.username.toLocaleLowerCase('es').includes(search));
   document.getElementById('leaderboard-body').innerHTML = filtered.length ? filtered.map((entry) => {
     const index = sorted.indexOf(entry);
-    const played = entry.username === state.user.username ? state.predictions.length : null;
-    return `<tr class="${entry.username === state.user.username ? 'is-current-user' : ''}"><td>${rankMark(index)}</td><td><span class="table-player"><span class="avatar avatar-small">${escapeHTML(entry.username.slice(0, 1).toUpperCase())}</span>${escapeHTML(entry.username)}${entry.username === state.user.username ? '<small class="you-tag">TÚ</small>' : ''}</span></td><td>${played ?? '—'}</td><td class="points-cell">${Number(entry.total_points) || 0} <small>PTS</small></td></tr>`;
-  }).join('') : '<tr><td colspan="4" class="table-empty">No encontramos participantes con ese nombre.</td></tr>';
+    return `<tr class="${entry.username === state.user.username ? 'is-current-user' : ''}"><td>${rankMark(index)}</td><td><span class="table-player"><span class="avatar avatar-small">${escapeHTML(entry.username.slice(0, 1).toUpperCase())}</span>${escapeHTML(entry.username)}${entry.username === state.user.username ? '<small class="you-tag">TÚ</small>' : ''}</span></td><td>${Number(entry.total_predictions) || 0}</td><td>${Number(entry.exact_hits) || 0}</td><td>${Number(entry.winner_hits) || 0}</td><td>${Number(entry.goal_difference_hits) || 0}</td><td class="points-cell">${Number(entry.total_points) || 0} <small>PTS</small></td></tr>`;
+  }).join('') : '<tr><td colspan="7" class="table-empty">No encontramos participantes con ese nombre.</td></tr>';
   const currentRow = document.getElementById('current-player-row');
   currentRow.classList.toggle('hidden', currentRank < 5);
   currentRow.innerHTML = `<span>Tu posición <b>#${String(currentRank + 1).padStart(2, '0')}</b></span><span>${Number(current.total_points) || 0} PTS</span>`;
@@ -325,7 +324,7 @@ function scoreBreakdown(homePrediction, awayPrediction, homeActual, awayActual, 
   const winner = getWinner(homePrediction, awayPrediction) === getWinner(homeActual, awayActual);
   const difference = winner && Math.abs(homePrediction - awayPrediction) === Math.abs(homeActual - awayActual);
   const streak = winner && (previousStreak + 1) % 3 === 0;
-  return { exact: exact ? 5 : 0, winner: winner ? 3 : 0, difference: difference ? 2 : 0, streak: streak ? 2 : 0, early: early ? 1 : 0 };
+  return { exact: exact ? 5 : 0, winner: winner && !exact ? 3 : 0, difference: difference && !exact ? 2 : 0, streak: streak ? 2 : 0, early: early ? 1 : 0 };
 }
 
 function renderAnalytics() {
@@ -346,7 +345,7 @@ function renderAnalytics() {
 function renderAdmin() {
   if (state.user.role !== 'admin') return;
   const list = document.getElementById('admin-match-list');
-  list.innerHTML = state.matches.map((match) => `<article class="admin-match"><div class="admin-match-info"><span class="match-stage">PARTIDO ${String(match.id).padStart(2, '0')}</span><h3>${escapeHTML(match.home_team)} <i>vs</i> ${escapeHTML(match.away_team)}</h3><span>${escapeHTML(formatKickoff(match.kickoff_at))} · ${match.status === 'completed' ? 'Finalizado' : 'Programado'}</span></div><form class="admin-result-form" data-admin-match="${match.id}"><label><span>LOCAL</span><input name="home_score" type="number" min="0" max="20" value="${match.home_score ?? ''}" placeholder="–" required /></label><b>:</b><label><span>VISITANTE</span><input name="away_score" type="number" min="0" max="20" value="${match.away_score ?? ''}" placeholder="–" required /></label><button class="button button-quiet" type="submit">Guardar resultado</button></form></article>`).join('') || '<div class="empty-state"><h3>No hay partidos cargados</h3></div>';
+  list.innerHTML = state.matches.map((match) => `<article class="admin-match"><div class="admin-match-info"><span class="match-stage">PARTIDO ${String(match.id).padStart(2, '0')}</span><h3>${escapeHTML(match.home_team)} <i>vs</i> ${escapeHTML(match.away_team)}</h3><span>${escapeHTML(formatKickoff(match.kickoff_at))} · ${match.status === 'completed' ? 'Finalizado' : match.status === 'live' ? 'En juego' : 'Programado'}</span></div><form class="admin-result-form" data-admin-match="${match.id}"><label class="admin-status"><span>ESTADO</span><select name="status"><option value="scheduled" ${match.status === 'scheduled' ? 'selected' : ''}>Programado</option><option value="live" ${match.status === 'live' ? 'selected' : ''}>En juego</option><option value="completed" ${match.status === 'completed' ? 'selected' : ''}>Finalizado</option></select></label><label><span>LOCAL</span><input name="home_score" type="number" min="0" max="20" value="${match.home_score ?? ''}" placeholder="–" /></label><b>:</b><label><span>VISITANTE</span><input name="away_score" type="number" min="0" max="20" value="${match.away_score ?? ''}" placeholder="–" /></label><button class="button button-quiet" type="submit">Guardar</button></form></article>`).join('') || '<div class="empty-state"><h3>No hay partidos cargados</h3></div>';
 }
 
 function showModal(content) {
@@ -457,6 +456,17 @@ async function saveAdminResult(event) {
   const button = form.querySelector('button[type="submit"]');
   button.disabled = true;
   try {
+    if (form.status.value !== 'completed') {
+      await apiFetch(`/admin/matches/${matchId}/status`, { method: 'PATCH', body: JSON.stringify({ status: form.status.value }) });
+      state.matches = await apiFetch('/matches');
+      renderAdmin();
+      showToast('Estado del partido actualizado.', 'success');
+      return;
+    }
+    if (form.home_score.value === '' || form.away_score.value === '') {
+      showToast('Ingresa ambos goles para finalizar el partido.', 'warning');
+      return;
+    }
     await apiFetch(`/admin/matches/${matchId}/result`, { method: 'POST', body: JSON.stringify({ home_score: Number(form.home_score.value), away_score: Number(form.away_score.value) }) });
     state.matches = await apiFetch('/matches');
     state.predictions = await apiFetch('/matches/predictions/me');

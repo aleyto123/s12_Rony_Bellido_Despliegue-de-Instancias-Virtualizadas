@@ -1,95 +1,93 @@
-const db = require('../models/db');
-const { calculatePoints, calculateStreakBonus } = require('../services/scoringService');
+const { pool } = require('../models/db');
+const { calculateScores } = require('../services/scoring');
 
-function getMatches(req, res) {
-  const matches = db.prepare('SELECT * FROM matches ORDER BY kickoff_at ASC').all();
-  res.json(matches);
+async function getMatches(req, res) {
+  const { rows } = await pool.query('SELECT * FROM matches ORDER BY kickoff_at ASC, id ASC');
+  res.json(rows);
 }
 
-function createPrediction(req, res) {
+async function createPrediction(req, res) {
   const userId = req.user.id;
   const matchId = Number(req.params.id);
   const { home_score, away_score } = req.body;
 
-  if (home_score === undefined || away_score === undefined) {
-    return res.status(400).json({ error: 'Debe indicar home_score y away_score' });
+  if (!Number.isInteger(home_score) || !Number.isInteger(away_score) || home_score < 0 || away_score < 0 || home_score > 99 || away_score > 99) {
+    return res.status(400).json({ error: 'Los marcadores deben ser enteros entre 0 y 99.' });
   }
 
-  const match = db.prepare('SELECT * FROM matches WHERE id = ?').get(matchId);
+  const matchResult = await pool.query('SELECT * FROM matches WHERE id = $1', [matchId]);
+  const match = matchResult.rows[0];
   if (!match) {
     return res.status(404).json({ error: 'Partido no encontrado' });
   }
 
-  if (match.home_score !== null && match.away_score !== null) {
-    return res.status(400).json({ error: 'Este partido ya tiene resultado real' });
+  if (match.status !== 'scheduled' || new Date(match.kickoff_at).getTime() <= Date.now() + 10 * 60 * 1000) {
+    return res.status(400).json({ error: 'El periodo para pronosticar este partido ya cerró.' });
   }
 
-  const existing = db.prepare('SELECT id FROM predictions WHERE user_id = ? AND match_id = ?').get(userId, matchId);
-  if (existing) {
-    return res.status(409).json({ error: 'Ya existe una predicción para este partido' });
+  const result = await pool.query(
+    `INSERT INTO predictions (user_id, match_id, home_score, away_score)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (user_id, match_id) DO NOTHING
+     RETURNING id, user_id, match_id, home_score, away_score, predicted_at, points`,
+    [userId, matchId, home_score, away_score]
+  );
+  if (result.rowCount === 0) {
+    return res.status(409).json({ error: 'Ya existe un pronóstico para este partido.' });
   }
 
-  const predictedAt = new Date().toISOString();
-  const prediction = {
-    user_id: userId,
-    match_id: matchId,
-    home_score: Number(home_score),
-    away_score: Number(away_score),
-    predicted_at: predictedAt
-  };
-
-  const result = db.prepare('INSERT INTO predictions (user_id, match_id, home_score, away_score, predicted_at) VALUES (?, ?, ?, ?, ?)')
-    .run(prediction.user_id, prediction.match_id, prediction.home_score, prediction.away_score, prediction.predicted_at);
-
-  res.status(201).json({ id: result.lastInsertRowid, ...prediction });
+  res.status(201).json(result.rows[0]);
 }
 
-function getUserPredictions(req, res) {
-  const userId = req.user.id;
-  const rows = db.prepare(`
+async function getUserPredictions(req, res) {
+  const { rows } = await pool.query(`
     SELECT p.*, m.home_team, m.away_team, m.kickoff_at
     FROM predictions p
     INNER JOIN matches m ON m.id = p.match_id
-    WHERE p.user_id = ?
+    WHERE p.user_id = $1
     ORDER BY m.kickoff_at ASC
-  `).all(userId);
+  `, [req.user.id]);
   res.json(rows);
 }
 
-function getLeaderboardGlobal(req, res) {
-  const rows = db.prepare(`
-    SELECT u.username, COALESCE(SUM(p.points), 0) AS total_points
+async function getLeaderboardGlobal(req, res) {
+  const { rows } = await pool.query(`
+    SELECT u.id AS user_id, u.username,
+      COALESCE(SUM(p.points), 0)::int AS total_points,
+      COUNT(p.id)::int AS total_predictions,
+      COUNT(p.id) FILTER (WHERE p.exact_hit)::int AS exact_hits,
+      COUNT(p.id) FILTER (WHERE p.winner_hit AND NOT p.exact_hit)::int AS winner_hits,
+      COUNT(p.id) FILTER (WHERE p.goal_difference_hit)::int AS goal_difference_hits
     FROM users u
     LEFT JOIN predictions p ON p.user_id = u.id
     GROUP BY u.id, u.username
     ORDER BY total_points DESC, u.username ASC
-  `).all();
+  `);
   res.json(rows);
 }
 
-function recalculateAllScores() {
-  const matches = db.prepare('SELECT * FROM matches ORDER BY kickoff_at ASC').all();
-  const predictions = db.prepare('SELECT * FROM predictions').all();
-  const users = db.prepare('SELECT * FROM users').all();
-
-  for (const user of users) {
-    const userPredictions = predictions.filter((p) => p.user_id === user.id);
-    let total = 0;
-
-    for (const prediction of userPredictions) {
-      const match = matches.find((m) => m.id === prediction.match_id);
-      if (!match || match.home_score === null || match.away_score === null) continue;
-
-      const basePoints = calculatePoints(prediction, match, prediction.predicted_at, match.kickoff_at);
-      const streakBonus = calculateStreakBonus(userPredictions, matches);
-      const finalPoints = basePoints + streakBonus;
-
-      db.prepare('UPDATE predictions SET points = ? WHERE id = ?').run(finalPoints, prediction.id);
-      total += finalPoints;
+async function recalculateAllScores() {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const [matchResult, predictionResult] = await Promise.all([
+      client.query('SELECT id, kickoff_at, home_score, away_score, status FROM matches ORDER BY kickoff_at, id'),
+      client.query('SELECT id, user_id, match_id, home_score, away_score, predicted_at FROM predictions ORDER BY user_id, predicted_at, id')
+    ]);
+    const scores = calculateScores(predictionResult.rows, matchResult.rows);
+    for (const prediction of predictionResult.rows) {
+      const score = scores.get(prediction.id);
+      await client.query(
+        `UPDATE predictions SET points = $1, exact_hit = $2, winner_hit = $3, goal_difference_hit = $4 WHERE id = $5`,
+        [score?.points || 0, score?.exact || false, score?.winnerCorrect || false, score?.differenceCorrect || false, prediction.id]
+      );
     }
-
-    db.prepare('INSERT INTO scores (user_id, group_id, total_points, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, group_id) DO UPDATE SET total_points = excluded.total_points, updated_at = excluded.updated_at')
-      .run(user.id, null, total, new Date().toISOString());
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
   }
 }
 

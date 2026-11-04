@@ -10,13 +10,13 @@ Este proyecto consiste en el desarrollo de una aplicación web para jugar una qu
 4. Registrar predicciones por partido con timestamp.
 5. Calcular el puntaje según reglas definidas.
 6. Implementar panel de administrador para resultados reales.
-7. Contenerizar con Docker y preparar despliegue generalizado para AWS.
+7. Contenerizar con Docker Compose y documentar el despliegue en Google Cloud.
 8. Ejecutar pruebas de estrés / load testing.
 
 ## Reglas de puntuación aplicadas
-- Resultado exacto: +5 puntos
+- Marcador exacto: +5 puntos, sin duplicar puntos de ganador o diferencia
 - Ganador correcto: +3 puntos
-- Diferencia de goles correcta: +2 puntos
+- Ganador y diferencia correctos sin marcador exacto: +3 + 2 puntos
 - Racha: +2 por cada 3 partidos consecutivos acertados (al menos ganador)
 - Predicción anticipada: +1 si se realiza con más de 24 horas de anticipación
 
@@ -43,17 +43,23 @@ Este proyecto consiste en el desarrollo de una aplicación web para jugar una qu
 │   │   ├── controllers/
 │   │   ├── models/
 │   │   ├── routes/
-│   │   ├── services/scoringService.js
-│   │   └── app.js
+│   │   ├── middleware/auth.js
+│   │   ├── services/scoring.js
+│   │   ├── services/scoring.test.js
+│   │   ├── app.js
+│   │   └── server.js
 │   ├── package.json
 │   └── Dockerfile
 ├── frontend/
-│   ├── public/
-│   ├── src/
+│   ├── public/ (SPA)
+│   ├── nginx.conf
 │   └── Dockerfile
 ├── docker-compose.yml
-├── load_test.py
+├── nginx_balancer.conf
+├── load_test.js
+├── ARQUITECTURA.md
 ├── README.md
+├── .env.example
 └── LABORATORIO CALIFICADO.md
 ```
 

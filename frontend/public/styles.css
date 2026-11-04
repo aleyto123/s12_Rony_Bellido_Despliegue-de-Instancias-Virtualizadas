@@ -284,6 +284,7 @@ a { color: inherit; text-decoration: none; }
 .admin-result-form { display: flex; align-items: end; gap: 8px; }
 .admin-result-form label { display: grid; gap: 3px; color: var(--subtle); font: 8px var(--mono); }
 .admin-result-form input { width: 54px; height: 40px; padding: 0 5px; color: var(--green-bright); font: 14px var(--mono); text-align: center; }
+.admin-result-form select { min-width: 115px; height: 40px; border: 1px solid var(--line); border-radius: 3px; padding: 0 8px; background: var(--surface-solid); color: var(--ink); font: 10px var(--sans); }
 .admin-result-form > b { padding-bottom: 9px; color: var(--subtle); }
 .admin-result-form .button { margin-left: 5px; font-size: 11px; }
 
