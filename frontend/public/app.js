@@ -428,7 +428,9 @@ async function submitGroupForm(event, mode) {
   event.preventDefault();
   const form = event.currentTarget;
   const path = mode === 'create' ? '/groups' : '/groups/join';
-  const payload = mode === 'create' ? { name: form.name.value.trim() } : { invite_code: form.invite_code.value.trim().toUpperCase() };
+  const payload = mode === 'create'
+    ? { name: form.elements.namedItem('name').value.trim() }
+    : { invite_code: form.elements.namedItem('invite_code').value.trim().toUpperCase() };
   const button = form.querySelector('button[type="submit"]');
   button.disabled = true;
   try {
