@@ -1,0 +1,29 @@
+version: '3.9'
+
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: mundial-backend
+    ports:
+      - '3001:3001'
+    environment:
+      PORT: 3001
+      JWT_SECRET: 'mundial-quiniela-secret-2026'
+      DATABASE_PATH: /app/data/app.db
+    volumes:
+      - backend_data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: mundial-frontend
+    ports:
+      - '80:80'
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  backend_data:
