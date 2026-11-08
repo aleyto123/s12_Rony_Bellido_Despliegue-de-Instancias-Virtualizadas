@@ -106,8 +106,8 @@ El esquema está en `prisma/schema.prisma` y el cliente compartido en `lib/prism
 ## Publicar en Vercel
 
 1. Sube estos cambios a tu repositorio de GitHub.
-2. Importa ese repositorio en Vercel y establece **Root Directory: biblioteca**.
-3. Usa el preset **Next.js** y los comandos definidos en `vercel.json`.
+2. Importa ese repositorio en Vercel y conserva **Root Directory: ./ (raíz del repositorio)**.
+3. La configuración `vercel.json` de la raíz declara únicamente el servicio **biblioteca**, con framework Next.js, y envía todas las rutas a ese servicio. Sus páginas y API Routes se despliegan juntas; el backend de la quiniela no participa.
 4. Configura `LIBRARY_DEMO=false`, `DATABASE_URL` y `DIRECT_URL` como variables del proyecto.
 5. Aplica el esquema desde tu equipo con `npm run db:push` antes del despliegue.
 6. Despliega y comprueba dashboard, catálogo y estadísticas.
