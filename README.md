@@ -1,3 +1,11 @@
+# Tarea S12 — Biblioteca
+
+La implementación de la tarea del documento **GLAB-S12-EAREVALO-2026-1** se encuentra en [biblioteca](biblioteca/README.md). Incluye Next.js, API Routes, Prisma, búsqueda con filtros y paginación, dashboard y estadísticas de autores.
+
+Para ejecutarla, entra en `biblioteca` y sigue su README.
+
+---
+
 # Cancha 26 · Predicciones del Mundial
 
 Aplicación educativa de quiniela con autenticación, predicciones, salas privadas, clasificación, panel administrativo y puntuación automática. No involucra dinero real.

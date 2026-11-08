@@ -1,0 +1,37 @@
+name: Biblioteca S12
+on:
+  push:
+    paths:
+      - "biblioteca/**"
+      - ".github/workflows/biblioteca.yml"
+  pull_request:
+    paths:
+      - "biblioteca/**"
+      - ".github/workflows/biblioteca.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: biblioteca
+    env:
+      LIBRARY_DEMO: "true"
+      DATABASE_URL: "postgresql://postgres:local@127.0.0.1:5432/biblioteca"
+      DIRECT_URL: "postgresql://postgres:local@127.0.0.1:5432/biblioteca"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: biblioteca/package-lock.json
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run build
+      - run: npm run test:production

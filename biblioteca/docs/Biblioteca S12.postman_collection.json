@@ -1,0 +1,191 @@
+{
+  "info": {
+    "name": "Biblioteca S12",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "API de Folio. Configura baseUrl, authorId y bookId. Ejecuta POST Autor antes de POST Libro. Las solicitudes DELETE eliminan los registros indicados."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:3000"
+    },
+    {
+      "key": "authorId",
+      "value": "gabriel-garcia-marquez"
+    },
+    {
+      "key": "bookId",
+      "value": "cien-anos"
+    }
+  ],
+  "item": [
+    {
+      "name": "Buscar libros con filtros y paginación",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/books/search?search=amor&genre=Novela&authorName=Garc%C3%ADa&page=1&limit=10&sortBy=publishedYear&order=desc"
+      }
+    },
+    {
+      "name": "Estadísticas del autor",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/authors/{{authorId}}/stats"
+      }
+    },
+    {
+      "name": "Todos los autores",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/authors"
+      }
+    },
+    {
+      "name": "Autor por ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/authors/{{authorId}}"
+      }
+    },
+    {
+      "name": "Libros del autor",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/authors/{{authorId}}/books"
+      }
+    },
+    {
+      "name": "Crear autor de prueba",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/authors",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Autor de Postman\",\n  \"email\": \"postman@example.com\",\n  \"nationality\": \"Perú\",\n  \"birthYear\": 1990,\n  \"bio\": \"Registro de prueba de la API.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Editar autor",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/authors/{{authorId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"bio\": \"Biografía actualizada mediante API.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Todos los libros",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/books"
+      }
+    },
+    {
+      "name": "Filtrar libros por género",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/books?genre=Novela"
+      }
+    },
+    {
+      "name": "Libro por ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/books/{{bookId}}"
+      }
+    },
+    {
+      "name": "Crear libro de prueba",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/books",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Libro de Postman\",\n  \"description\": \"Registro de prueba.\",\n  \"isbn\": \"POSTMAN-001\",\n  \"publishedYear\": 2024,\n  \"genre\": \"Ensayo\",\n  \"pages\": 150,\n  \"authorId\": \"{{authorId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Editar libro",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/books/{{bookId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"pages\": 200\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Eliminar libro — revisar bookId antes",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{baseUrl}}/api/books/{{bookId}}"
+      }
+    },
+    {
+      "name": "Eliminar autor sin libros — revisar authorId antes",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{baseUrl}}/api/authors/{{authorId}}"
+      }
+    }
+  ]
+}
